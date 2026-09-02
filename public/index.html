@@ -24,6 +24,12 @@
   .mini { background: #14161b; color: #c8ccd4; border: 1px solid #444; border-radius: 4px; font-size: 10px; padding: 0 6px; margin-left: 4px; cursor: pointer; text-transform: none; letter-spacing: 0; }
   .mini:hover { border-color: #5a8de0; color: #fff; }
   #clear { align-self: center; margin: 0; padding: 4px 12px; font-size: 11px; }
+  .pricecol { display: flex; flex-direction: column; gap: 5px; }
+  .pricerow { display: flex; gap: 14px; }
+  #tip { background: #7a5b2b; color: #ffe9c4; border: 1px solid #c9973f; border-radius: 10px;
+         padding: 3px 8px; font-size: 10px; line-height: 1.3; text-decoration: none;
+         max-width: 194px; text-align: center; }
+  #tip:hover { background: #96712f; }
   #status { margin-left: auto; text-align: right; font-size: 12px; color: #9aa0ac; align-self: center; }
   #status b { color: #e8e8ea; font-size: 14px; }
   main { padding: 16px; display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
@@ -67,8 +73,13 @@
     <label>Rarity <button class="mini" id="rall">all</button><button class="mini" id="rnone">none</button></label>
     <div class="rarities" id="rarities"></div>
   </div>
-  <div class="field"><label>Min $</label><input type="number" id="min" min="0" step="0.05" placeholder="0.00"></div>
-  <div class="field"><label>Max $</label><input type="number" id="max" min="0" step="0.05" placeholder="none"></div>
+  <div class="pricecol">
+    <div class="pricerow">
+      <div class="field"><label>Min $</label><input type="number" id="min" min="0" step="0.05" placeholder="0.00"></div>
+      <div class="field"><label>Max $</label><input type="number" id="max" min="0" step="0.05" placeholder="none"></div>
+    </div>
+    <a id="tip" href="https://ko-fi.com/heleor" target="_blank" rel="noopener">🎴 buy me a pack if you think this is useful</a>
+  </div>
   <div id="status">loading…</div>
   <button class="mini" id="clear">clear all filters</button>
 </header>
