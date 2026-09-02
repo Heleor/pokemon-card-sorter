@@ -1,6 +1,8 @@
 # Pokemon Card Sorter
 
-Local website for sorting/filtering Pokemon cards by set, block, rarity, and market price.
+Website for sorting/filtering Pokemon cards by set, block, rarity, and market price.
+Live at https://heleor.github.io/pokemon-card-sorter/ — if you find it useful,
+[🎴 buy me a pack](https://ko-fi.com/heleor).
 
 ## Run
 
