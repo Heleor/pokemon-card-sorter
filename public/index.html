@@ -231,14 +231,19 @@ function apply() {
 
 function renderMore() {
   const sets = DATA.sets;
+  // log scale: cheapest visible card -> MIN_W, priciest -> 2x BASE_W. Linear scaling
+  // shoved everything below a fraction of the max onto the MIN_W clamp.
   const maxPrice = matches.length ? matches[0][6] : 1;
+  const minPrice = matches.length ? Math.max(matches[matches.length - 1][6], 0.01) : 1;
+  const span = Math.log(maxPrice / minPrice);
   const frag = document.createDocumentFragment();
   const end = Math.min(shown + PAGE, matches.length);
   for (let i = shown; i < end; i++) {
     const e = matches[i];
     const pid = e[0], name = e[1], gid = e[2], num = e[3], rarity = e[4], sub = e[5], price = e[6];
-    // 2x size at the top price, scaling linearly down with price
-    const w = Math.max(MIN_W, Math.round(2 * BASE_W * price / maxPrice));
+    const w = span > 0
+      ? Math.round(MIN_W + (2 * BASE_W - MIN_W) * Math.log(Math.max(price, 0.01) / minPrice) / span)
+      : BASE_W;
     const div = document.createElement('div');
     div.className = 'card';
     div.style.width = w + 'px';
