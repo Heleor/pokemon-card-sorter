@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pokemon Card Sorter</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.4 system-ui, sans-serif; background: #16181d; color: #e8e8ea; }
+  header { position: sticky; top: 0; z-index: 10; background: #1e2129; border-bottom: 1px solid #333;
+           padding: 10px 16px; display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; }
+  .field { display: flex; flex-direction: column; gap: 3px; }
+  .field > label { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: #9aa0ac; }
+  select, input[type=number] { background: #14161b; color: #e8e8ea; border: 1px solid #444; border-radius: 6px; padding: 5px 8px; font-size: 13px; }
+  input[type=number] { width: 90px; }
+  select { max-width: 280px; }
+  .rarities { display: flex; flex-wrap: wrap; gap: 4px; max-width: 560px; }
+  .rarities label { display: flex; align-items: center; gap: 4px; background: #14161b; border: 1px solid #444;
+                    border-radius: 14px; padding: 3px 10px 3px 6px; cursor: pointer; user-select: none; font-size: 12px; white-space: nowrap; }
+  .rarities label:has(:checked) { background: #2b4a7a; border-color: #5a8de0; }
+  .rarities input { accent-color: #5a8de0; margin: 0; }
+  label.newer { display: flex; align-items: center; gap: 5px; font-size: 12px; color: #c8ccd4; padding-bottom: 6px; cursor: pointer; }
+  .mini { background: #14161b; color: #c8ccd4; border: 1px solid #444; border-radius: 4px; font-size: 10px; padding: 0 6px; margin-left: 4px; cursor: pointer; text-transform: none; letter-spacing: 0; }
+  .mini:hover { border-color: #5a8de0; color: #fff; }
+  #clear { align-self: center; margin: 0; padding: 4px 12px; font-size: 11px; }
+  #status { margin-left: auto; text-align: right; font-size: 12px; color: #9aa0ac; align-self: center; }
+  #status b { color: #e8e8ea; font-size: 14px; }
+  main { padding: 16px; display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+  .card { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex-shrink: 0; }
+  .card a { display: block; line-height: 0; }
+  .card img { width: 100%; border-radius: 4.6%; background: #23262e; }
+  .noimg { aspect-ratio: 5 / 7; overflow: hidden; box-sizing: border-box;
+           border-radius: 4.6%; background: #23262e; border: 1px dashed #4a4f5a;
+           display: flex; flex-direction: column; align-items: center; justify-content: center;
+           gap: 4px; padding: 8%; text-align: center; line-height: 1.25; }
+  .noimg b { font-size: 12px; color: #c8ccd4; overflow-wrap: anywhere; }
+  .noimg span { font-size: 10px; color: #80858f; }
+  .card .price { font-weight: 700; font-size: 12px; color: #7fd18a; }
+  .card .cname { font-size: 11px; color: #c8ccd4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .card .cset { font-size: 10px; color: #80858f; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #more { margin: 20px auto 40px; display: block; background: #2b4a7a; color: #fff; border: 0; border-radius: 8px; padding: 10px 28px; font-size: 14px; cursor: pointer; }
+  #more:hover { background: #365d99; }
+  #more[hidden] { display: none; }
+  .empty { color: #9aa0ac; padding: 40px; }
+  footer { text-align: center; padding: 12px 16px 24px; font-size: 11px; color: #80858f; }
+  footer a { color: #9aa0ac; }
+</style>
+</head>
+<body>
+<header>
+  <div class="field"><label>Block</label>
+    <select id="block">
+      <option value="">Any block</option>
+      <option value="mega">Mega (Mega Evolution)</option>
+      <option value="sv">SV (Scarlet &amp; Violet)</option>
+      <option value="swsh">SwSh (Sword &amp; Shield)</option>
+      <option value="sumo">SuMo (Sun &amp; Moon)</option>
+      <option value="older">Older (pre-SuMo)</option>
+    </select>
+  </div>
+  <div class="field"><label>Set</label><select id="set"><option value="">Any set</option></select></div>
+  <label class="newer"><input type="checkbox" id="newer"> and newer sets</label>
+  <label class="newer"><input type="checkbox" id="mainonly" checked> main sets only</label>
+  <label class="newer"><input type="checkbox" id="unreleased"> include unreleased</label>
+  <div class="field">
+    <label>Rarity <button class="mini" id="rall">all</button><button class="mini" id="rnone">none</button></label>
+    <div class="rarities" id="rarities"></div>
+  </div>
+  <div class="field"><label>Min $</label><input type="number" id="min" min="0" step="0.05" placeholder="0.00"></div>
+  <div class="field"><label>Max $</label><input type="number" id="max" min="0" step="0.05" placeholder="none"></div>
+  <div id="status">loading…</div>
+  <button class="mini" id="clear">clear all filters</button>
+</header>
+<main id="grid"></main>
+<button id="more" hidden>Show more</button>
+<footer>Market prices from TCGplayer via <a href="https://tcgcsv.com">tcgcsv.com</a>, refreshed daily · <span id="dataage"></span></footer>
+
+<script>
+const BUCKETS = [
+  ['hyper',   'Hyper Rare'],
+  ['sir',     'SIR'],
+  ['ultra',   'Ultra Rare'],
+  ['ir',      'IR'],
+  ['double',  'Double Rare'],
+  ['rare',    'Rare'],
+  ['reverse', 'Reverse Holo'],
+  ['common',  'Common/Uncommon'],
+  ['other',   'Other'],
+];
+const RARITY_TO_BUCKET = {
+  'Hyper Rare': 'hyper', 'Mega Hyper Rare': 'hyper', 'Secret Rare': 'hyper', 'Rainbow Rare': 'hyper',
+  'Special Illustration Rare': 'sir',
+  'Ultra Rare': 'ultra', 'Shiny Ultra Rare': 'ultra',
+  'Illustration Rare': 'ir',
+  'Double Rare': 'double',
+  'Rare': 'rare', 'Holo Rare': 'rare', 'Rare Holo': 'rare',
+  'Common': 'common', 'Uncommon': 'common',
+};
+const bucketOf = e => e[5] === 'Reverse Holofoil' ? 'reverse' : (RARITY_TO_BUCKET[e[4]] || 'other');
+
+const PAGE = 250;
+const BASE_W = 140;           // width of a card at 1x
+const MIN_W = 46;             // clamp so cheap cards stay visible/clickable
+let DATA = null, matches = [], shown = 0;
+
+const $ = id => document.getElementById(id);
+
+for (const [key, label] of BUCKETS) {
+  const l = document.createElement('label');
+  const cb = document.createElement('input');
+  cb.type = 'checkbox';
+  cb.value = key;
+  cb.checked = true;
+  l.appendChild(cb);
+  l.appendChild(document.createTextNode(' ' + label));
+  $('rarities').appendChild(l);
+}
+
+fetch('data/cards.json').then(r => {
+  if (!r.ok) throw new Error('no data');
+  return r.json();
+}).then(d => {
+  DATA = d;
+  const savedSet = loadState();
+  refreshSetOptions();
+  if (savedSet) $('set').value = savedSet; // becomes '' if that set isn't in the current options
+  fetch('data/meta.json').then(r => r.json()).then(m => {
+    const age = Math.round((Date.now() - m.refreshedAt) / 3600e3);
+    $('status').title = 'prices refreshed ' + age + 'h ago';
+    $('dataage').textContent = 'prices as of ' + new Date(m.refreshedAt).toLocaleString();
+  });
+  apply();
+}).catch(() => {
+  $('grid').innerHTML = '<div class="empty">Data not built yet — run <code>node refresh.mjs</code> then reload.</div>';
+});
+
+const LS_KEY = 'pcs-filters';
+
+function saveState() {
+  const s = {
+    block: $('block').value, set: $('set').value,
+    newer: $('newer').checked, mainonly: $('mainonly').checked, unreleased: $('unreleased').checked,
+    min: $('min').value, max: $('max').value,
+    buckets: Array.from(document.querySelectorAll('#rarities input:checked'), i => i.value),
+  };
+  try { localStorage.setItem(LS_KEY, JSON.stringify(s)); } catch { /* storage unavailable */ }
+}
+
+// Restores everything except the set dropdown (options don't exist yet);
+// returns the saved set id for the caller to apply after refreshSetOptions().
+function loadState() {
+  let s = null;
+  try { s = JSON.parse(localStorage.getItem(LS_KEY)); } catch { /* storage unavailable */ }
+  if (!s) return '';
+  $('block').value = s.block || '';
+  $('newer').checked = !!s.newer;
+  $('mainonly').checked = !!s.mainonly;
+  $('unreleased').checked = !!s.unreleased;
+  $('min').value = s.min || '';
+  $('max').value = s.max || '';
+  const buckets = Array.isArray(s.buckets) ? s.buckets : [];
+  document.querySelectorAll('#rarities input').forEach(i => i.checked = buckets.includes(i.value));
+  return s.set || '';
+}
+
+function refreshSetOptions() {
+  const sets = DATA.sets;
+  const mainOnly = $('mainonly').checked;
+  const unreleased = $('unreleased').checked;
+  const prev = $('set').value;
+  const ids = Object.keys(sets)
+    .filter(id => (!mainOnly || sets[id].main) && (unreleased || !sets[id].future))
+    .sort((a, b) => sets[b].date.localeCompare(sets[a].date));
+  $('set').innerHTML = '<option value="">Any set</option>';
+  for (const id of ids) {
+    const o = document.createElement('option');
+    o.value = id;
+    o.textContent = sets[id].name + ' (' + sets[id].date.slice(0, 7) + ')';
+    $('set').appendChild(o);
+  }
+  $('set').value = ids.includes(prev) ? prev : '';
+}
+
+function apply() {
+  const sets = DATA.sets, cards = DATA.cards;
+  const block = $('block').value;
+  const setId = $('set').value;
+  const mainOnly = $('mainonly').checked;
+  const unreleasedOk = $('unreleased').checked;
+  const newer = $('newer').checked && setId;
+  const fromDate = newer ? sets[setId].date : null;
+  const min = parseFloat($('min').value);
+  const max = parseFloat($('max').value);
+  const buckets = new Set(Array.from(document.querySelectorAll('#rarities input:checked'), i => i.value));
+
+  matches = cards.filter(e => {
+    const s = sets[e[2]];
+    if (block && s.block !== block) return false;
+    if (mainOnly && !s.main) return false;
+    if (!unreleasedOk && (e[7] || s.future)) return false;
+    if (setId && !newer && String(e[2]) !== setId) return false;
+    if (fromDate && s.date < fromDate) return false;
+    if (!isNaN(min) && e[6] < min) return false;
+    if (!isNaN(max) && e[6] > max) return false;
+    if (!buckets.has(bucketOf(e))) return false;
+    return true;
+  }).sort((a, b) => b[6] - a[6]);
+
+  saveState();
+  $('status').innerHTML = '<b>' + matches.length.toLocaleString() + '</b> cards';
+  $('grid').innerHTML = matches.length ? '' : '<div class="empty">No cards match these filters.</div>';
+  shown = 0;
+  renderMore();
+}
+
+function renderMore() {
+  const sets = DATA.sets;
+  const maxPrice = matches.length ? matches[0][6] : 1;
+  const frag = document.createDocumentFragment();
+  const end = Math.min(shown + PAGE, matches.length);
+  for (let i = shown; i < end; i++) {
+    const e = matches[i];
+    const pid = e[0], name = e[1], gid = e[2], num = e[3], rarity = e[4], sub = e[5], price = e[6];
+    // 2x size at the top price, scaling linearly down with price
+    const w = Math.max(MIN_W, Math.round(2 * BASE_W * price / maxPrice));
+    const div = document.createElement('div');
+    div.className = 'card';
+    div.style.width = w + 'px';
+    const variant = sub === 'Normal' ? '' : ' · ' + sub;
+    div.title = name + ' — ' + rarity + variant + '\n' + sets[gid].name + ' ' + num;
+    const res = w > 190 ? '400w' : '200w';
+
+    const a = document.createElement('a');
+    a.href = 'https://www.tcgplayer.com/product/' + pid;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    const img = document.createElement('img');
+    img.loading = 'lazy';
+    img.src = 'https://tcgplayer-cdn.tcgplayer.com/product/' + pid + '_' + res + '.jpg';
+    img.alt = '';
+    img.onerror = () => {
+      // TCGplayer has no photo for some listings (e.g. Master Ball Pattern variants)
+      const ph = document.createElement('div');
+      ph.className = 'noimg';
+      const nm = document.createElement('b');
+      nm.textContent = name;
+      const info = document.createElement('span');
+      info.textContent = num + (num ? ' · ' : '') + 'no image';
+      ph.append(nm, info);
+      img.replaceWith(ph);
+    };
+    a.appendChild(img);
+
+    const priceEl = document.createElement('span');
+    priceEl.className = 'price';
+    priceEl.textContent = '$' + price.toFixed(2);
+    const nameEl = document.createElement('span');
+    nameEl.className = 'cname';
+    nameEl.textContent = name + variant;
+    const setEl = document.createElement('span');
+    setEl.className = 'cset';
+    setEl.textContent = sets[gid].name + ' · ' + num + ' · ' + rarity;
+
+    div.append(a, priceEl, nameEl, setEl);
+    frag.appendChild(div);
+  }
+  $('grid').appendChild(frag);
+  shown = end;
+  $('more').hidden = shown >= matches.length;
+  $('more').textContent = 'Show more (' + (matches.length - shown).toLocaleString() + ' remaining)';
+}
+
+$('more').onclick = renderMore;
+['block', 'set', 'newer', 'min', 'max'].forEach(id => $(id).addEventListener('change', apply));
+$('rarities').addEventListener('change', apply);
+$('mainonly').addEventListener('change', () => { refreshSetOptions(); apply(); });
+$('unreleased').addEventListener('change', () => { refreshSetOptions(); apply(); });
+$('rall').onclick = () => { document.querySelectorAll('#rarities input').forEach(i => i.checked = true); apply(); };
+$('rnone').onclick = () => { document.querySelectorAll('#rarities input').forEach(i => i.checked = false); apply(); };
+$('clear').onclick = () => {
+  try { localStorage.removeItem(LS_KEY); } catch { /* storage unavailable */ }
+  $('block').value = '';
+  $('newer').checked = false;
+  $('mainonly').checked = true;
+  $('unreleased').checked = false;
+  $('min').value = '';
+  $('max').value = '';
+  document.querySelectorAll('#rarities input').forEach(i => i.checked = true);
+  refreshSetOptions();
+  $('set').value = '';
+  apply();
+};
+</script>
+</body>
+</html>
